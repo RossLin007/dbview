@@ -1,5 +1,6 @@
-# Base Image
-FROM node:20-alpine
+# Base Image (支持国内高速镜像)
+FROM docker.m.daocloud.io/library/node:20-alpine
+
 
 # Set working directory
 WORKDIR /app
