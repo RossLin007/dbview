@@ -15,7 +15,8 @@ dotenv.config();
 
 
 const app = express();
-const PORT = process.env.BACKEND_PORT || process.env.PORT || 3001;
+const PORT = process.env.BACKEND_PORT || process.env.PORT || 3301;
+
 
 
 app.use(cors());

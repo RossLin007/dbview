@@ -16,7 +16,8 @@ RUN npm install --omit=dev
 COPY . .
 
 # Expose backend port
-EXPOSE 3001
+EXPOSE 3301
+
 
 # Command to run server
 CMD ["node", "server.js"]
