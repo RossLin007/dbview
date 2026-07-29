@@ -8,6 +8,7 @@ import Analytics from './components/Analytics';
 import LoginModal from './components/LoginModal';
 import ForbiddenModal from './components/ForbiddenModal';
 import { AuthProvider, useAuth } from './AuthContext';
+import { fetchWithAuth } from './utils/api';
 
 function MainApp() {
   const { user, loading, session } = useAuth();
@@ -30,12 +31,7 @@ function MainApp() {
     setIsForbidden(false);
     
     try {
-      const headers = {};
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`;
-      }
-
-      const response = await fetch('/api/analytics', { headers });
+      const response = await fetchWithAuth('/api/analytics');
 
       if (response.status === 403) {
         const data = await response.json();

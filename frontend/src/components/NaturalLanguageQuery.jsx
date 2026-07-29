@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Send, Loader2, Database, ChevronDown, ChevronUp, Sparkles, AlertCircle } from 'lucide-react';
+import { fetchWithAuth } from '../utils/api';
 
 export default function NaturalLanguageQuery() {
   const [messages, setMessages] = useState([
@@ -32,7 +33,7 @@ export default function NaturalLanguageQuery() {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/ask', {
+      const response = await fetchWithAuth('/api/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: q }),

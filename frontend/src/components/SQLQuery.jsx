@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Play, Download, AlertTriangle, CheckCircle, Database } from 'lucide-react';
+import { fetchWithAuth } from '../utils/api';
 
 export default function SQLQuery() {
   const [sql, setSql] = useState('SELECT record_id, topic->>\'title\' as title, topic->>\'numOfDate\' as day, cardinality(participants) as num_participants FROM public.records ORDER BY created_at DESC LIMIT 10;');
@@ -47,7 +48,7 @@ export default function SQLQuery() {
     }
 
     try {
-      const response = await fetch('/api/query', {
+      const response = await fetchWithAuth('/api/query', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

@@ -140,7 +140,7 @@ export default function RecordDetails({ recordId, onBack }) {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/records/${recordId}`);
+        const response = await fetchWithAuth(`/api/records/${recordId}`);
         if (!response.ok) {
           throw new Error('Failed to load meeting details.');
         }
