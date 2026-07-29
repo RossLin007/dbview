@@ -32,7 +32,9 @@ const isSupabaseServerConfigured =
   SUPABASE_ANON_KEY !== 'your-anon-key';
 
 const supabaseServer = isSupabaseServerConfigured
-  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false }
+    })
   : null;
 
 const requireAuth = async (req, res, next) => {

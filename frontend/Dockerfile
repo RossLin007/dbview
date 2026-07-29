@@ -1,5 +1,6 @@
 # Stage 1: Build Vite frontend app (支持国内高速镜像)
-FROM docker.m.daocloud.io/library/node:20-alpine AS builder
+FROM docker.m.daocloud.io/library/node:22-alpine AS builder
+
 
 WORKDIR /app
 

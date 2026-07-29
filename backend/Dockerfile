@@ -1,5 +1,6 @@
-# Base Image (支持国内高速镜像)
-FROM docker.m.daocloud.io/library/node:20-alpine
+# Base Image (支持国内高速镜像，使用 Node 22 满足 Supabase 原生 WebSocket 需求)
+FROM docker.m.daocloud.io/library/node:22-alpine
+
 
 
 # Set working directory
