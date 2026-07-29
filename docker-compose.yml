@@ -26,6 +26,9 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-${SUPABASE_URL}}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-${SUPABASE_ANON_KEY}}
     container_name: dbview-frontend
     restart: always
     ports:

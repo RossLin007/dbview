@@ -100,6 +100,15 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+// Config endpoint for frontend runtime Supabase credential injection
+app.get('/api/config', (req, res) => {
+  res.json({
+    supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
+  });
+});
+
+
 // Protect all /api routes with Supabase JWT authentication middleware
 app.use('/api', requireAuth);
 
