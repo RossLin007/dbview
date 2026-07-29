@@ -32,7 +32,10 @@ if [ ! -f ".env" ]; then
     echo -e "${YELLOW}请记得配置 .env 中的 SUPABASE 与 DATABASE 凭证。${NC}"
 fi
 
-# 3. 编译并启动容器
+# 3. 清理旧残留容器并编译启动
+echo -e "${BLUE}🧹 正在停止并清理残留的旧容器...${NC}"
+docker compose down --remove-orphans || true
+
 echo -e "${BLUE}📦 [1/3] 开始构建 Docker 镜像...${NC}"
 docker compose build
 
@@ -48,9 +51,13 @@ echo -e "${GREEN}🎉 DBView 部署完成！容器运行状态如下：         
 echo -e "${GREEN}====================================================${NC}"
 docker compose ps
 
+# 从 .env 读取已配置端口，无配时提供默认值
+F_PORT=$(grep -E '^FRONTEND_PORT=' .env | cut -d '=' -f2 || echo "7880")
+B_PORT=$(grep -E '^BACKEND_PORT=' .env | cut -d '=' -f2 || echo "3301")
+
 echo -e ""
-echo -e "${GREEN}🌐 前端网页访问入口: http://localhost${NC}"
-echo -e "${GREEN}🔌 后端 API 探针地址: http://localhost:3001/api/health${NC}"
+echo -e "${GREEN}🌐 前端网页访问入口: http://localhost:${F_PORT}${NC}"
+echo -e "${GREEN}🔌 后端 API 探针地址: http://localhost:${B_PORT}/api/health${NC}"
 echo -e ""
 echo -e "${YELLOW}💡 提示指令:${NC}"
 echo -e "  - 查看实时日志: ${BLUE}docker compose logs -f${NC}"
