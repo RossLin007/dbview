@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase, isSupabaseConfigured, applyRuntimeSupabaseConfig } from './supabaseClient';
+import { getToken, setToken, clearToken } from './authClient';
 
 const AuthContext = createContext({
   user: null,
@@ -16,100 +16,86 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [configured, setConfigured] = useState(isSupabaseConfigured);
 
   useEffect(() => {
-    let activeSubscription = null;
+    let cancelled = false;
 
     const initAuth = async () => {
-      let isReady = isSupabaseConfigured;
-
-      // 如果客户端在打包时没有环境变量，尝试向后端 /api/config 获取运行时配置
-      if (!isReady) {
-        try {
-          const res = await fetch('/api/config');
-          if (res.ok) {
-            const data = await res.json();
-            if (data.supabaseUrl && data.supabaseAnonKey) {
-              isReady = applyRuntimeSupabaseConfig(data.supabaseUrl, data.supabaseAnonKey);
-            }
-          }
-        } catch (err) {
-          console.warn('[Supabase Auth] Failed to fetch runtime config:', err);
-        }
-      }
-
-      setConfigured(isReady);
-
-      if (!isReady) {
+      const token = getToken();
+      if (!token) {
         setLoading(false);
         return;
       }
 
-      // 获取当前 Session
+      // 用本地 token 向后端校验有效性
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setSession(session);
-        setUser(session?.user ?? null);
+        const res = await fetch('/api/auth/me', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (cancelled) return;
+        if (res.ok) {
+          const data = await res.json();
+          setSession({ access_token: token });
+          setUser(data.user ?? null);
+        } else {
+          clearToken();
+        }
       } catch (err) {
-        console.error('[Supabase Auth] Error getting session:', err);
+        console.warn('[Auth] Failed to verify local token:', err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-
-      // 监听 Auth 状态变动
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-      });
-
-      activeSubscription = subscription;
     };
 
     initAuth();
 
     return () => {
-      if (activeSubscription) {
-        activeSubscription.unsubscribe();
-      }
+      cancelled = true;
     };
   }, []);
 
-  const signUpWithEmail = async (email, password) => {
-    if (!configured) {
-      throw new Error('Supabase Auth 未正确配置凭证，请先配置 .env 文件');
-    }
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-    if (error) throw error;
+  const applyAuthResult = (data) => {
+    if (!data?.token) throw new Error('服务器响应缺少 token');
+    setToken(data.token);
+    setSession({ access_token: data.token });
+    setUser(data.user ?? null);
     return data;
+  };
+
+  const signUpWithEmail = async (email, password) => {
+    const res = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.message || '注册失败，请重试');
+    }
+    return applyAuthResult(data);
   };
 
   const signInWithEmail = async (email, password) => {
-    if (!configured) {
-      throw new Error('Supabase Auth 未正确配置凭证，请先配置 .env 文件');
-    }
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
     });
-    if (error) throw error;
-    return data;
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.message || '登录失败，请检查邮箱与密码');
+    }
+    return applyAuthResult(data);
   };
 
   const signOut = async () => {
-    if (configured) {
-      await supabase.auth.signOut();
-    }
+    clearToken();
     setSession(null);
     setUser(null);
   };
 
   const getAccessToken = () => {
-    return session?.access_token || null;
+    return getToken();
   };
 
   return (
@@ -118,7 +104,7 @@ export const AuthProvider = ({ children }) => {
         user,
         session,
         loading,
-        isConfigured: configured,
+        isConfigured: true,
         signUpWithEmail,
         signInWithEmail,
         signOut,

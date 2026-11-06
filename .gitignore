@@ -11,6 +11,9 @@ dist
 dist-ssr
 *.local
 
+# Local auth account store (bcrypt 哈希后的账号文件)
+backend/data
+
 # Logs
 logs
 *.log

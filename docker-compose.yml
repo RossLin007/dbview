@@ -10,6 +10,9 @@ services:
     restart: always
     env_file:
       - .env
+    volumes:
+      # 持久化本地账号存储（JSON 文件），容器重建不丢账号
+      - ./backend/data:/app/data
     ports:
       - "${BACKEND_PORT:-3301}:${BACKEND_PORT:-3301}"
     networks:
@@ -26,9 +29,6 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      args:
-        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-${SUPABASE_URL}}
-        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-${SUPABASE_ANON_KEY}}
     container_name: dbview-frontend
     restart: always
     ports:

@@ -590,6 +590,25 @@ deleted_at IS NULL
 
 ---
 
+# 应用登录账号（本地存储，不在本数据库）
+
+由于本 PostgreSQL 为只读副本（`transaction_read_only = on`，无法建表），dbview 的登录账号不存储在数据库中，而是保存在后端本地 JSON 文件 `backend/data/app_users.json`（Docker 部署时挂载卷持久化）：
+
+```text
+[{
+  "id": "<uuid>",
+  "email": "user@example.com",
+  "password_hash": "<bcrypt $2a$10$...>",
+  "created_at": "<ISO8601>"
+}]
+```
+
+- 注册/登录接口：`POST /api/auth/signup`、`POST /api/auth/login`、`GET /api/auth/me`
+- 仅 `ALLOWED_EMAILS` 白名单内邮箱可注册
+- 密码使用 bcrypt 哈希，token 为本地签发的 JWT（`AUTH_JWT_SECRET` 签名，默认 7 天有效）
+
+---
+
 # 典型 SQL 示例
 
 ## 查询某会议的发言片段

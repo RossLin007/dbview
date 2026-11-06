@@ -805,7 +805,7 @@ body {
 }
 
 /* ==========================================
-   Supabase Auth & Login Modal 样式 (光明 / 亮色美化风格)
+   Login Modal 样式 (光明 / 亮色美化风格)
    ========================================== */
 .login-overlay {
   position: fixed;

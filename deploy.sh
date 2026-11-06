@@ -29,7 +29,18 @@ fi
 if [ ! -f ".env" ]; then
     echo -e "${YELLOW}⚠️ 警告: 根目录未找到 .env 文件，正在从 .env.example 复制...${NC}"
     cp .env.example .env
-    echo -e "${YELLOW}请记得配置 .env 中的 SUPABASE 与 DATABASE 凭证。${NC}"
+    echo -e "${YELLOW}请记得配置 .env 中的 DATABASE_URL 与 ALLOWED_EMAILS。${NC}"
+fi
+
+# 2.1 确保 AUTH_JWT_SECRET 存在（本地 JWT 认证密钥，缺失则自动生成随机值）
+if ! grep -qE '^AUTH_JWT_SECRET=[^[:space:]]+' .env || grep -qE '^AUTH_JWT_SECRET=please-run' .env; then
+    GENERATED_SECRET=$(openssl rand -hex 32 2>/dev/null || head -c 32 /dev/urandom | xxd -p -c 64)
+    if grep -qE '^AUTH_JWT_SECRET=' .env; then
+        sed -i '' "s|^AUTH_JWT_SECRET=.*|AUTH_JWT_SECRET=${GENERATED_SECRET}|" .env
+    else
+        echo "AUTH_JWT_SECRET=${GENERATED_SECRET}" >> .env
+    fi
+    echo -e "${GREEN}🔐 已自动生成 AUTH_JWT_SECRET 并写入 .env${NC}"
 fi
 
 # 3. 清理旧残留容器并编译启动

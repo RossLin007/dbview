@@ -4,8 +4,9 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { createClient } from '@supabase/supabase-js';
+import jwt from 'jsonwebtoken';
 import nlRouter from './server-nl.js';
+import { findUserByEmail, createUser, verifyUserPassword, hashPassword } from './userStore.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,28 +23,30 @@ const PORT = process.env.BACKEND_PORT || process.env.PORT || 3301;
 app.use(cors());
 app.use(express.json());
 
-// Supabase Auth Configuration & Middleware
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+// Local JWT Auth Configuration & Middleware
+const AUTH_JWT_SECRET = process.env.AUTH_JWT_SECRET;
+const AUTH_TOKEN_TTL_HOURS = parseInt(process.env.AUTH_TOKEN_TTL_HOURS, 10) || 168;
 
-const isSupabaseServerConfigured = 
-  Boolean(SUPABASE_URL) && 
-  Boolean(SUPABASE_ANON_KEY) && 
-  SUPABASE_URL !== 'https://your-project.supabase.co' &&
-  SUPABASE_ANON_KEY !== 'your-anon-key';
+if (!AUTH_JWT_SECRET || AUTH_JWT_SECRET.length < 16) {
+  console.error(
+    '[Auth] FATAL: AUTH_JWT_SECRET 未配置或长度不足 16 位。请在 .env 中设置随机密钥，' +
+    '例如: openssl rand -hex 32'
+  );
+  process.exit(1);
+}
 
-const supabaseServer = isSupabaseServerConfigured
-  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: { persistSession: false }
-    })
-  : null;
+const getAllowedEmails = () =>
+  (process.env.ALLOWED_EMAILS || '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+
+const issueToken = (user) =>
+  jwt.sign({ sub: user.id, email: user.email }, AUTH_JWT_SECRET, {
+    expiresIn: `${AUTH_TOKEN_TTL_HOURS}h`
+  });
 
 const requireAuth = async (req, res, next) => {
-  // If Supabase credentials are not configured yet, skip auth check with a dev notice
-  if (!isSupabaseServerConfigured) {
-    return next();
-  }
-
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Unauthorized', message: 'Missing or invalid Authorization header' });
@@ -51,18 +54,11 @@ const requireAuth = async (req, res, next) => {
 
   const token = authHeader.split(' ')[1];
   try {
-    const { data: { user }, error } = await supabaseServer.auth.getUser(token);
-    if (error || !user) {
-      return res.status(401).json({ error: 'Unauthorized', message: 'Invalid or expired token' });
-    }
+    const payload = jwt.verify(token, AUTH_JWT_SECRET);
+    const user = { id: payload.sub, email: payload.email };
 
     // 白名单权限校验 (ALLOWED_EMAILS)
-    const allowedEmailsStr = process.env.ALLOWED_EMAILS || '';
-    const allowedEmails = allowedEmailsStr
-      .split(',')
-      .map((e) => e.trim().toLowerCase())
-      .filter(Boolean);
-
+    const allowedEmails = getAllowedEmails();
     if (allowedEmails.length > 0) {
       const userEmail = user.email ? user.email.toLowerCase() : '';
       if (!allowedEmails.includes(userEmail)) {
@@ -80,6 +76,80 @@ const requireAuth = async (req, res, next) => {
     return res.status(401).json({ error: 'Unauthorized', message: err.message });
   }
 };
+
+// ---- 本地账号认证路由（注册在 requireAuth 之前，保持公开）----
+
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// POST /api/auth/signup - 白名单内邮箱自助注册，成功即签发 token（自动登录）
+app.post('/api/auth/signup', async (req, res) => {
+  try {
+    const email = (req.body.email || '').trim().toLowerCase();
+    const password = req.body.password || '';
+
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Bad Request', message: '邮箱格式不正确' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Bad Request', message: '密码长度不能少于 6 位' });
+    }
+
+    const allowedEmails = getAllowedEmails();
+    if (allowedEmails.length > 0 && !allowedEmails.includes(email)) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        code: 'NOT_IN_ALLOWLIST',
+        message: `您的账号 (${email}) 未在访问授权白名单中，请联系管理员开通权限。`
+      });
+    }
+
+    const existing = await findUserByEmail(email);
+    if (existing) {
+      return res.status(409).json({ error: 'Conflict', message: '该邮箱已注册，请直接登录' });
+    }
+
+    const passwordHash = await hashPassword(password);
+    const user = await createUser({ email, passwordHash });
+
+    res.status(201).json({ token: issueToken(user), user });
+  } catch (err) {
+    console.error('[Auth] signup error:', err.message);
+    res.status(500).json({ error: 'Internal Server Error', message: '注册失败，请稍后重试' });
+  }
+});
+
+// POST /api/auth/login - 邮箱密码登录，返回 JWT
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const email = (req.body.email || '').trim().toLowerCase();
+    const password = req.body.password || '';
+
+    const user = await findUserByEmail(email);
+
+    if (!user || !(await verifyUserPassword(user, password))) {
+      return res.status(401).json({ error: 'Unauthorized', message: '邮箱或密码不正确' });
+    }
+
+    res.json({ token: issueToken(user), user: { id: user.id, email: user.email } });
+  } catch (err) {
+    console.error('[Auth] login error:', err.message);
+    res.status(500).json({ error: 'Internal Server Error', message: '登录失败，请稍后重试' });
+  }
+});
+
+// GET /api/auth/me - 供前端刷新页面时校验本地 token
+app.get('/api/auth/me', (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized', message: 'Missing or invalid Authorization header' });
+  }
+  try {
+    const payload = jwt.verify(authHeader.split(' ')[1], AUTH_JWT_SECRET);
+    res.json({ user: { id: payload.sub, email: payload.email } });
+  } catch (err) {
+    res.status(401).json({ error: 'Unauthorized', message: 'Invalid or expired token' });
+  }
+});
 
 // Health check endpoint (unprotected for Docker & Load Balancer probes)
 app.get('/api/health', async (req, res) => {
@@ -100,16 +170,8 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// Config endpoint for frontend runtime Supabase credential injection
-app.get('/api/config', (req, res) => {
-  res.json({
-    supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
-    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
-  });
-});
 
-
-// Protect all /api routes with Supabase JWT authentication middleware
+// Protect all /api routes with local JWT authentication middleware
 app.use('/api', requireAuth);
 
 
@@ -139,6 +201,12 @@ pool.connect((err, client, release) => {
     release();
   }
 });
+
+// 本地账号存储初始化检查（JSON 文件，持久化目录由 AUTH_DATA_DIR 或默认 ./data 指定）
+import('./userStore.js')
+  .then(({ findUserByEmail }) => findUserByEmail('__probe__'))
+  .then(() => console.log('[Auth] Local user store is ready.'))
+  .catch((err) => console.error('[Auth] Local user store init failed:', err.message));
 
 // Helper to sanitize custom SQL queries to only allow SELECT
 function isSafeSelectQuery(sql) {

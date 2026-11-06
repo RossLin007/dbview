@@ -1,11 +1,10 @@
-import { supabase } from '../supabaseClient';
+import { getToken } from '../authClient';
 
 /**
- * Helper to execute fetch requests automatically injecting Supabase JWT Bearer token into Authorization header
+ * Helper to execute fetch requests automatically injecting local JWT Bearer token into Authorization header
  */
 export async function fetchWithAuth(url, options = {}) {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token;
+  const token = getToken();
 
   const headers = {
     ...(options.headers || {}),

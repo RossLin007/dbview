@@ -28,7 +28,7 @@ export default function ForbiddenModal({ forbiddenMessage, onRetry }) {
         </h2>
 
         <p style={{ fontSize: '0.88rem', color: '#64748b', marginBottom: '1.25rem', lineHeight: 1.5 }}>
-          您的 Supabase 账号 <strong style={{ color: '#0f172a' }}>{user?.email}</strong> 已验证通过，但尚未加入 DBView 数据的授权白名单。
+          您的账号 <strong style={{ color: '#0f172a' }}>{user?.email}</strong> 已验证通过，但尚未加入 DBView 数据的授权白名单。
         </p>
 
         <div style={{

@@ -1,20 +1,19 @@
 import React, { useState } from 'react';
 import { useAuth } from '../AuthContext';
-import { 
-  Database, 
-  Mail, 
-  Lock, 
-  LogIn, 
-  UserPlus, 
-  ShieldCheck, 
-  AlertCircle, 
+import {
+  Database,
+  Mail,
+  Lock,
+  LogIn,
+  UserPlus,
+  ShieldCheck,
+  AlertCircle,
   CheckCircle2,
-  Sparkles,
-  ExternalLink
+  Sparkles
 } from 'lucide-react';
 
 export default function LoginModal() {
-  const { isConfigured, signInWithEmail, signUpWithEmail } = useAuth();
+  const { signInWithEmail, signUpWithEmail } = useAuth();
   const [mode, setMode] = useState('login'); // 'login' | 'signup'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -52,7 +51,7 @@ export default function LoginModal() {
         setSuccessMsg('登录成功！正在跳转...');
       } else {
         await signUpWithEmail(email, password);
-        setSuccessMsg('注册成功！如果配置了邮箱验证，请检查您的收件箱。');
+        setSuccessMsg('注册成功！已自动登录。');
       }
     } catch (err) {
       console.error(err);
@@ -77,27 +76,6 @@ export default function LoginModal() {
           </div>
           <p className="login-subtitle">可视化数据库管理 & 智能 NL-to-SQL 平台</p>
         </div>
-
-        {!isConfigured && (
-          <div className="config-alert">
-            <AlertCircle size={20} className="alert-icon" />
-            <div className="alert-content">
-              <h4>Supabase 未接入实测凭证</h4>
-              <p>
-                项目已集成 Supabase Auth 框架。请在 <code>.env</code> 文件中配置 
-                <code>VITE_SUPABASE_URL</code> 和 <code>VITE_SUPABASE_ANON_KEY</code> 后刷新页面。
-              </p>
-              <a 
-                href="https://supabase.com/dashboard" 
-                target="_blank" 
-                rel="noreferrer"
-                className="config-link"
-              >
-                获取 Supabase Key <ExternalLink size={12} />
-              </a>
-            </div>
-          </div>
-        )}
 
         <div className="tab-switcher">
           <button
@@ -212,7 +190,7 @@ export default function LoginModal() {
         <div className="login-footer">
           <div className="security-tag">
             <ShieldCheck size={14} />
-            <span>Supabase Auth JWT 端到端加密保护</span>
+            <span>本地账号 JWT 加密保护</span>
           </div>
         </div>
       </div>
