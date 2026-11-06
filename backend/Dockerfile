@@ -10,7 +10,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install production dependencies
-RUN npm install --omit=dev
+RUN npm install --omit=dev --registry=https://registry.npmmirror.com
 
 # Copy backend source code
 COPY . .

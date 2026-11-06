@@ -7,7 +7,8 @@ WORKDIR /app
 
 
 COPY package*.json ./
-RUN npm install
+# 国内网络环境下使用 npmmirror 加速依赖安装
+RUN npm install --registry=https://registry.npmmirror.com
 
 COPY . .
 RUN npm run build
